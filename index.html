@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社团经费与报销台账</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>社团经费与报销台账</h1>
+    <div class="header-actions">
+      <button id="btn-export" class="btn btn-ghost">导出 CSV</button>
+      <button id="btn-import" class="btn btn-ghost">导入 CSV</button>
+      <input type="file" id="file-import" accept=".csv" hidden>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="ledger">收支台账</button>
+    <button class="tab" data-tab="budget">预算核对</button>
+    <button class="tab" data-tab="reports">报销管理</button>
+  </nav>
+
+  <main>
+    <!-- 收支台账 -->
+    <section id="tab-ledger" class="tab-panel active">
+      <div class="summary-cards">
+        <div class="card"><span class="card-label">总收入</span><span id="sum-income" class="card-value income">¥0.00</span></div>
+        <div class="card"><span class="card-label">总支出</span><span id="sum-expense" class="card-value expense">¥0.00</span></div>
+        <div class="card"><span class="card-label">当前结余</span><span id="sum-balance" class="card-value">¥0.00</span></div>
+        <div class="card"><span class="card-label">待报销</span><span id="sum-pending" class="card-value pending">¥0.00</span></div>
+      </div>
+
+      <div class="toolbar">
+        <button id="btn-add" class="btn btn-primary">＋ 新增记录</button>
+        <input id="search" type="search" placeholder="搜索备注 / 活动…">
+        <select id="filter-type">
+          <option value="">全部类型</option>
+          <option value="income">收入</option>
+          <option value="expense">支出</option>
+        </select>
+        <select id="filter-activity">
+          <option value="">全部活动</option>
+        </select>
+      </div>
+
+      <table class="data-table" id="ledger-table">
+        <thead>
+          <tr>
+            <th>日期</th><th>类型</th><th>活动</th><th>摘要</th>
+            <th class="num">金额</th><th>票据</th><th>报销状态</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="ledger-body"></tbody>
+      </table>
+      <p id="ledger-empty" class="empty-hint">暂无记录，点击「新增记录」开始记账。</p>
+    </section>
+
+    <!-- 预算核对 -->
+    <section id="tab-budget" class="tab-panel">
+      <div class="toolbar">
+        <button id="btn-add-budget" class="btn btn-primary">＋ 新增活动预算</button>
+      </div>
+      <table class="data-table" id="budget-table">
+        <thead>
+          <tr>
+            <th>活动</th><th class="num">预算</th>
+            <th class="num">实际收入</th><th class="num">实际支出</th>
+            <th class="num">支出偏差</th><th>进度</th><th>状态</th>
+          </tr>
+        </thead>
+        <tbody id="budget-body"></tbody>
+      </table>
+      <p id="budget-empty" class="empty-hint">暂无活动预算，点击「新增活动预算」添加。</p>
+    </section>
+
+    <!-- 报销管理 -->
+    <section id="tab-reports" class="tab-panel">
+      <table class="data-table" id="report-table">
+        <thead>
+          <tr>
+            <th>申请人</th><th>活动</th><th>事由</th><th class="num">金额</th>
+            <th>票据数</th><th>状态</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="report-body"></tbody>
+      </table>
+      <p id="report-empty" class="empty-hint">没有待处理的报销。</p>
+    </section>
+  </main>
+
+  <!-- 新增/编辑记录 对话框 -->
+  <dialog id="dlg-record">
+    <form id="form-record" method="dialog">
+      <h2 id="dlg-record-title">新增记录</h2>
+      <label>日期 <input type="date" id="f-date" required></label>
+      <label>类型
+        <select id="f-type" required>
+          <option value="income">收入</option>
+          <option value="expense">支出</option>
+        </select>
+      </label>
+      <label>活动 <input type="text" id="f-activity" list="activity-list" placeholder="如：迎新晚会" required></label>
+      <datalist id="activity-list"></datalist>
+      <label>摘要 <input type="text" id="f-memo" placeholder="如：购买横幅" required></label>
+      <label>金额 <input type="number" id="f-amount" step="0.01" min="0" required></label>
+      <label>票据 <input type="file" id="f-receipts" multiple accept="image/*,.pdf"></label>
+      <div id="receipt-list" class="receipt-list"></div>
+      <label>报销状态
+        <select id="f-status">
+          <option value="none">不涉及报销</option>
+          <option value="pending">待报销</option>
+          <option value="approved">已审核</option>
+          <option value="reimbursed">已报销</option>
+          <option value="rejected">已驳回</option>
+        </select>
+      </label>
+      <label>申请人 <input type="text" id="f-applicant" placeholder="报销时填写"></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="btn-cancel-record">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 预算 对话框 -->
+  <dialog id="dlg-budget">
+    <form id="form-budget" method="dialog">
+      <h2>活动预算</h2>
+      <label>活动名称 <input type="text" id="b-name" required></label>
+      <label>预算金额 <input type="number" id="b-amount" step="0.01" min="0" required></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="btn-cancel-budget">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
